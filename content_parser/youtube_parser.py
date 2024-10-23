@@ -1,9 +1,13 @@
 import os
+import time
 import requests
 
 from dotenv import load_dotenv
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.formatters import TextFormatter
+
+
+logger = logging.getLogger(__name__)
 
 
 def youtube_video_id_parser(YOUTUBE_API_KEY: str,
@@ -22,6 +26,14 @@ def youtube_video_id_parser(YOUTUBE_API_KEY: str,
                     max_results штук.
     Raises:
     """
+    if not YOUTUBE_API_KEY:
+        logger.error("API ключ для YouTube не может быть пустым.")
+        return []
+
+    if max_results <=0:
+        logger.error("max_results должно быть больше нуля.")
+        return []
+
     url_youtube_data_api = (f"https://www.googleapis.com/youtube/v3/search?"
                             f"part=snippet&"
                             f"maxResults={max_results}&"
@@ -30,17 +42,39 @@ def youtube_video_id_parser(YOUTUBE_API_KEY: str,
                             f"videoDuration=long&"
                             f"key={YOUTUBE_API_KEY}")
 
-    response = requests.get(url_youtube_data_api)
+    retries = 3
+    backoff_time = 2
     list_of_id = []
-    if response.status_code == 200:
-        data = response.json()
-        for item in data['items']:
-            video_id = item['id']['videoId']
-            title = item['snippet']['title']
-            list_of_id.append(video_id)
-            print(f"Video ID: {video_id}, Title: {title}")
-    else:
-        print("Ошибка при выполнении запроса:", response.status_code)
+
+    for attempt in range(retries):
+        try:
+            response = requests.get(url_youtube_data_api)
+
+            if response.status_code == 200:
+                data = response.json()
+
+                for item in data.get('items', []):
+                    video_id = item['id'].get('videoId')
+                    title = item['snippet'].get('title')
+
+                    if video_id and title:
+                        list_of_id.append(video_id)
+                        logger.info(f"ID: {video_id}, Title: {title}")
+                    else:
+                        logger.warning("Недостаточные данные для одного из видео")
+                logger.info(f"Получено {len(list_of_id)} id по запросу '{query}' на YouTube")
+                return list_of_id
+
+            else:
+                logger.error(f"Ошибка запроса к API YouTube: {response.status_code}")
+                break
+        except requests.exceptions.Timeout:
+            logger.warning(f"Превышено время ожидания. Попытка {attempt+1} из {retries}.")
+            time.sleep(backoff_time)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Ошибка при запросе: {e}")
+            break
+
     return list_of_id
 
 
