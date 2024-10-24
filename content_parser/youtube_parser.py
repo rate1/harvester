@@ -1,9 +1,11 @@
 import os
 import time
+import random
+import logging
 import requests
 
 from dotenv import load_dotenv
-from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
 from youtube_transcript_api.formatters import TextFormatter
 
 
@@ -12,7 +14,9 @@ logger = logging.getLogger(__name__)
 
 def youtube_video_id_parser(YOUTUBE_API_KEY: str,
                             query: str,
-                            max_results: int) -> list[str]:
+                            max_results: int,
+                            retries=3,
+                            backoff_time=2) -> list[str]:
     """
     Парсит выдачу YouTube по запросу.
     Парсит выдачу YouTube по запросу query и возвращает список результатов в
@@ -21,6 +25,8 @@ def youtube_video_id_parser(YOUTUBE_API_KEY: str,
         YOUTUBE_API_KEY(str): API ключ YouTube.
         query(str): Поисковый запрос.
         max_results(int): Максимальное количество получаемых результатов.
+        retries(int): Количество повторных попыток в случае неудачи.
+        backoff_time(int): Время задержки перед повторной попыткой (в секундах).
     Returns:
         list[str]: Список id видео из первых результатов поиска в количестве
                     max_results штук.
@@ -42,8 +48,6 @@ def youtube_video_id_parser(YOUTUBE_API_KEY: str,
                             f"videoDuration=long&"
                             f"key={YOUTUBE_API_KEY}")
 
-    retries = 3
-    backoff_time = 2
     list_of_id = []
 
     for attempt in range(retries):
@@ -78,73 +82,55 @@ def youtube_video_id_parser(YOUTUBE_API_KEY: str,
     return list_of_id
 
 
-def youtube_subtitles_parser(video_id: str, language_code="en") -> str:
+def youtube_subtitles_parser(video_id: str, language_code="en",
+                             retries=3, backoff_time=2) -> str:
     """
     Парсит субтитры c YouTube на указанном языке.
     Args:
         video_id(str): ID видео на YouTube.
         language_code(str): Язык субтитров, по умолчанию "en".
+        retries(int): Количество повторных попыток в случае неудачи.
+        backoff_time(int): Время задержки перед повторной попыткой (в секундах).
     Returns:
         str: Субтитры на указанном языке или None, если их нет.
     """
-    try:
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-        if language_code in transcript_list._manually_created_transcripts:
-            transcript = transcript_list.find_manually_created_transcript([language_code])
-        else:
-            transcript = transcript_list.find_generated_transcript([language_code])
-        formatter = TextFormatter()
-        subtitles_text = formatter.format_transcript(transcript.fetch())
-        return subtitles_text
-    except Exception as e:
-        print(f"Ошибка при извлечении субтитров: {e}")
+    if not video_id:
+        logger.error("video_id не может быть пустым.")
         return None
 
+    for attempt in range(retries):
+        try:
+            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+            if language_code in transcript_list._manually_created_transcripts:
+                transcript = transcript_list.find_manually_created_transcript([language_code])
+                logger.info(f"Получены вручную созданные субтитры на языке {language_code}.")
+            else:
+                transcript = transcript_list.find_generated_transcript([language_code])
+                logger.info(f"Получены сгенерированные субтитры на языке {language_code}.")
+            formatter = TextFormatter()
+            subtitles_text = formatter.format_transcript(transcript.fetch())
+            return subtitles_text
 
-def split_text(text: str, chunk_size: int) -> list[str]:
-    """
-    Разделяет текст на части указанного размера.
-    Args:
-        text(str): Текст для разбивания на части.
-        chunk_size(int): Размер получаемых частей.
-    Returns:
-        list[str]: Список, содержащий части поделенного текста.
-    Raises:
-    """
-    return [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
+        except NoTranscriptFound:
+            logger.error(f"Субтитры на языке '{language_code}' не найдены для видео ID {video_id}.")
+            return None
 
+        except TranscriptsDisabled:
+            logger.error(f"Субтитры отключены для видео ID {video_id}.")
+            return None
 
-def text_translator_mymemory(text: str, src='en', dest='ru') -> str:
-    """
-    Переводит текст.
-    Переводит полученный текст с языка src, на язык dest, используя
-    бесплатный API MyMemory.
-    Args:
-        text(str): Текст для перевода.
-        src(str): Язык оригинального текста для перевода.
-        dest(str): Язык, на который необходимо произвести перевод.
-    Returns:
-        str: Переведенный текст.
-    Raises:
-    """
-    url = "https://api.mymemory.translated.net/get"
-    translated_text = []
-    chunks = split_text(text, 500)
-    for chunk in chunks:
-        params = {
-            'q': chunk,
-            'langpair': f'{src}|{dest}'
-        }
-        response = requests.get(url, params=params)
-        if response.status_code == 200:
-            json_response = response.json()
-            translated_chunk = json_response['responseData']['translatedText']
-            translated_text.append(translated_chunk)
-        else:
-            print(f"Ошибка перевода части текста: {response.status_code}")
-            break
-    print("Переведённые субтитры:", translated_text)
-    return ' '.join(translated_text)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Ошибка сети при попытке получить субтитры: {e}")
+            if attempt < retries - 1:
+                logger.info(f"Попытка {attempt + 1} из {retries}, повтор через {backoff_time} секунд.")
+                time.sleep(backoff_time)
+            else:
+                logger.error("Превышено количество попыток, не удалось получить субтитры.")
+                return None
+
+        except Exception as e:
+            logger.error(f"Непредвиденная ошибка при извлечении субтитров: {e}")
+            return None
 
 
 def main():

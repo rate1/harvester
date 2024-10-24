@@ -44,4 +44,5 @@ def gpt_rewrite(text: str, temperature=0.7, max_tokens=1500) -> str:
         temperature=temperature
     )
 
+    print(response)
     return response.choices[0].message.content.strip().replace('\n', '')

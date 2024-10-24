@@ -2,7 +2,7 @@ import logging
 
 from dotenv import load_dotenv
 from content_parser.youtube_parser import youtube_subtitles_parser
-from content_parser.youtube_parser import text_translator_mymemory
+from translate.translate import text_translator_mymemory, text_translator_yandex
 from rewrite.chatgpt_rewrite import gpt_rewrite
 
 
@@ -29,7 +29,8 @@ def main():
             logger.info("Русских субтитров нет, пробую получить английские.")
             en_subtitles = youtube_subtitles_parser(youtube_id, 'en')
             if en_subtitles:
-                subtitles = text_translator_mymemory(en_subtitles)
+                subtitles = text_translator_yandex(en_subtitles)
+                print(subtitles)
                 logger.info("Английские субтитры переведены.")
             else:
                 logger.error("Английских субтитров нет. Прерывание процесса.")
@@ -39,12 +40,14 @@ def main():
         return
 
     try:
-        logger.info("Начинается рерайт текста.")
-        print(subtitles)
-        article_text = gpt_rewrite(subtitles)
-        logger.info("Рерайт завершен успешно.")
-        print("Текст статьи после рерайта:")
-        print(article_text)
+        if subtitles:
+            logger.info("Начинается рерайт текста.")
+            article_text = gpt_rewrite(subtitles)
+            logger.info("Рерайт завершен успешно.")
+            print("Текст статьи после рерайта:")
+            print(article_text)
+        else:
+            logger.info("Текст для рерайта не был получен.")
     except Exception as e:
         logger.error(f"Ошибка при рерайте текста: {e}")
         return
