@@ -27,7 +27,7 @@ def text_translator_yandex(text: str, src='en', dest='ru') -> str:
         "Authorization": f"Api-Key {YANDEX_API_KEY}"
     }
 
-    chunks = split_text(text, 1000)
+    chunks = split_text(text, 20000)
     translated_text = []
 
     for chunk in chunks:

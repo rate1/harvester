@@ -19,19 +19,19 @@ logger = logging.getLogger(__name__)
 
 def main():
     load_dotenv()
-    youtube_id = input("Введите id ролика на YouTube: ")
+    youtube_id = input("Введите ID ролика на YouTube: ")
     try:
         logger.info(f"Получаем субтитры для ролика с ID: {youtube_id}")
         subtitles = youtube_subtitles_parser(youtube_id, 'ru')
         if subtitles:
-            logger.info("Оригинальные русские субтитры получены.")
+            logger.info(f"Оригинальные русские субтитры получены. Длина текста: {len(subtitles)}.")
         else:
             logger.info("Русских субтитров нет, пробую получить английские.")
             en_subtitles = youtube_subtitles_parser(youtube_id, 'en')
             if en_subtitles:
                 subtitles = text_translator_yandex(en_subtitles)
                 print(subtitles)
-                logger.info("Английские субтитры переведены.")
+                logger.info(f"Английские субтитры переведены. Длина текста: {len(subtitles)}.")
             else:
                 logger.error("Английских субтитров нет. Прерывание процесса.")
                 return
@@ -43,7 +43,7 @@ def main():
         if subtitles:
             logger.info("Начинается рерайт текста.")
             article_text = gpt_rewrite(subtitles)
-            logger.info("Рерайт завершен успешно.")
+            logger.info(f"Рерайт завершен успешно. Длина текста: {len(article_text)}.")
             print("Текст статьи после рерайта:")
             print(article_text)
         else:
