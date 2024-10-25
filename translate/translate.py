@@ -27,15 +27,15 @@ def text_translator_yandex(text: str, src='en', dest='ru') -> str:
         "Authorization": f"Api-Key {YANDEX_API_KEY}"
     }
 
-    chunks = split_text(text, 20000)
+    chanks = split_text(text, 8000)
     translated_text = []
 
-    for chunk in chunks:
+    for chunk in chanks:
         try:
             body = {
+                "sourceLanguageCode": src,
                 "targetLanguageCode": dest,
-                "texts": [chunk],
-                "sourceLanguageCode": src
+                "texts": [chunk]
             }
 
             response = requests.post(YANDEX_API_URL, json=body, headers=headers)
@@ -47,7 +47,7 @@ def text_translator_yandex(text: str, src='en', dest='ru') -> str:
                 logger.info(f"Часть текста успешно переведена: {translated_chunk[:30]}...")
             else:
                 logger.error(f"Ошибка перевода: {response.status_code}")
-                return f"Ошибка перевода: {response.status_code}"
+                break
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Ошибка сети при попытке перевода: {e}")

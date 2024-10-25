@@ -30,7 +30,6 @@ def main():
             en_subtitles = youtube_subtitles_parser(youtube_id, 'en')
             if en_subtitles:
                 subtitles = text_translator_yandex(en_subtitles)
-                print(subtitles)
                 logger.info(f"Английские субтитры переведены. Длина текста: {len(subtitles)}.")
             else:
                 logger.error("Английских субтитров нет. Прерывание процесса.")
@@ -42,7 +41,7 @@ def main():
     try:
         if subtitles:
             logger.info("Начинается рерайт текста.")
-            article_text = gpt_rewrite(subtitles)
+            article_text = gpt_rewrite(subtitles, max_tokens=6000)
             logger.info(f"Рерайт завершен успешно. Длина текста: {len(article_text)}.")
             print("Текст статьи после рерайта:")
             print(article_text)
