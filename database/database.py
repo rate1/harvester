@@ -1,5 +1,9 @@
 import sqlite3
+import logging
 from contextlib import closing
+
+
+logger = logging.getLogger(__name__)
 
 
 def initialize_db(db_name="harvester_data.db") -> None:
