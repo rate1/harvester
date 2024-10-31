@@ -1,6 +1,5 @@
 import sqlite3
 import logging
-from contextlib import closing
 
 
 logger = logging.getLogger(__name__)
@@ -12,38 +11,66 @@ def initialize_db(db_name="harvester_data.db") -> None:
     Args:
         db_name(str): Имя файла базы данных, по умолчанию 'harvester_data.db'.
     """
-    with closing(sqlite3.connect(db_name)) as conn:
-        with conn:
-            conn.execute("""
+    try:
+        with sqlite3.connect(db_name) as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS channels (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    url TEXT NOT NULL,
+                    platform TEXT NOT NULL
+                );
+                """)
+            
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS videos (
-                    video_id TEXT PRIMARY KEY,
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    youtube_id TEXT UNIQUE NOT NULL,
                     title TEXT,
-                    subtitles TEXT,
-                    rewritten_subtitles TEXT
-                )
-            """)
+                    description TEXT,
+                    channel_id INTEGER,
+                    FOREIGN KEY (channel_id) REFERENCES channels(id)
+                );
+                """)
+            
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS subtitles (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    video_id INTEGER,
+                    language_code TEXT,
+                    original_text TEXT,
+                    translated_text TEXT,
+                    FOREIGN KEY (video_id) REFERENCES videos(id)
+                );
+                """)
+            
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS rewrites (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    subtitle_id INTEGER,
+                    rewrite_text TEXT,
+                    FOREIGN KEY (subtitle_id) REFERENCES subtitles(id)
+                );
+                """)
+            
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS publications (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    rewrite_id INTEGER,
+                    channel_id INTEGER,
+                    publish_date TEXT,
+                    status TEXT,
+                    published_url TEXT,
+                    FOREIGN KEY (rewrite_id) REFERENCES rewrites(id),
+                    FOREIGN KEY (channel_id) REFERENCES channels(id)
+                );
+                """)
+            
+            conn.commit()
+            logger.info(f"База данных {db_name} успешно инициализирована.")
+            
+    except sqlite3.Error as e:
+        logger.error(f"Ошибка инициализации базы данных: {e}")
 
-# Функции для записи данных
-def save_video_data(video_id, title, db_name="project_data.db"):
-    with closing(sqlite3.connect(db_name)) as conn:
-        with conn:
-            conn.execute("""
-                INSERT OR IGNORE INTO videos (video_id, title)
-                VALUES (?, ?)
-            """, (video_id, title))
-
-def save_subtitles(video_id, subtitles, db_name="project_data.db"):
-    with closing(sqlite3.connect(db_name)) as conn:
-        with conn:
-            conn.execute("""
-                UPDATE videos SET subtitles = ?
-                WHERE video_id = ?
-            """, (subtitles, video_id))
-
-def save_rewrite(video_id, rewritten_subtitles, db_name="project_data.db"):
-    with closing(sqlite3.connect(db_name)) as conn:
-        with conn:
-            conn.execute("""
-                UPDATE videos SET rewritten_subtitles = ?
-                WHERE video_id = ?
-            """, (rewritten_subtitles, video_id))import
