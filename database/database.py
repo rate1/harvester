@@ -74,3 +74,50 @@ def initialize_db(db_name="harvester_data.db") -> None:
     except sqlite3.Error as e:
         logger.error(f"Ошибка инициализации базы данных: {e}")
 
+
+def insert_channel(name: str, platform: str, db_name="content_harvester.db") -> Optional[int]:
+    with sqlite3.connect(db_name) as conn:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO channels (name, platform) VALUES (?, ?)", (name, platform))
+        conn.commit()
+        return cursor.lastrowid
+
+def insert_video(youtube_id: str, title: str, description: str, upload_date: str, channel_id: int, db_name="content_harvester.db") -> Optional[int]:
+    with sqlite3.connect(db_name) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO videos (youtube_id, title, description, upload_date, channel_id) VALUES (?, ?, ?, ?, ?)",
+            (youtube_id, title, description, upload_date, channel_id)
+        )
+        conn.commit()
+        return cursor.lastrowid
+
+def insert_subtitle(video_id: int, language_code: str, subtitle_text: str, db_name="content_harvester.db") -> Optional[int]:
+    with sqlite3.connect(db_name) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO subtitles (video_id, language_code, subtitle_text) VALUES (?, ?, ?)",
+            (video_id, language_code, subtitle_text)
+        )
+        conn.commit()
+        return cursor.lastrowid
+
+def insert_rewrite(subtitle_id: int, rewrite_text: str, db_name="content_harvester.db") -> Optional[int]:
+    with sqlite3.connect(db_name) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO rewrites (subtitle_id, rewrite_text) VALUES (?, ?)",
+            (subtitle_id, rewrite_text)
+        )
+        conn.commit()
+        return cursor.lastrowid
+
+def insert_publication(rewrite_id: int, channel_id: int, publish_date: str, status: str, published_url: str, db_name="content_harvester.db") -> Optional[int]:
+    with sqlite3.connect(db_name) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO publications (rewrite_id, channel_id, publish_date, status, published_url) VALUES (?, ?, ?, ?, ?)",
+            (rewrite_id, channel_id, publish_date, status, published_url)
+        )
+        conn.commit()
+        return cursor.lastrowid
