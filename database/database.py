@@ -2,6 +2,9 @@ import sqlite3
 import logging
 
 
+from typing import Optional
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -15,26 +18,80 @@ def initialize_db(db_name="harvester_data.db") -> None:
         with sqlite3.connect(db_name) as conn:
             cursor = conn.cursor()
             
+            # Таблица subjects содержит тематики ресурсов.
             cursor.execute("""
-                CREATE TABLE IF NOT EXISTS channels (
+                CREATE TABLE IF NOT EXISTS subjects(
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    subject TEXT NOT NULL
+                );
+                """)
+
+            # Таблица categories содержит список категорий для разных тематик.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS categories(
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    category TEXT NOT NULL,
+                    subject_id INTEGER,
+                    FOREIGN KEY (subject_id) REFERENCES subjects(id)
+                );
+                """)
+
+            # Таблица topics содержит темы постов.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS topics(
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    topic TEXT NOT NULL,
+                    category_id INTEGER,
+                    FOREIGN KEY (category_id) REFERENCES categories(id)
+                );
+                """)
+
+            # Таблица platforms содержит платформы для размещения постов.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS platforms(
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    url TEXT NOT NULL
+                );
+                """)
+
+            # Таблица channels содержит список каналов для публикации постов.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS channels(
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
                     url TEXT NOT NULL,
-                    platform TEXT NOT NULL
+                    platform_id INTEGER,
+                    subject_id INTEGER,
+                    FOREIGN KEY (platform_id) REFERENCES platforms(id),
+                    FOREIGN KEY (subject_id) REFERENCES subjects(id)
+                );
+                """)
+
+            # Таблица channels_categories содержит категории для каналов.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS channels_categories(
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    channel_id INTEGER,
+                    category_id INTEGER,
+                    FOREIGN KEY (channel_id) REFERENCES channels(id),
+                    FOREIGN KEY (category_id) REFERENCES categories(id)
                 );
                 """)
             
+            # Таблица videos содержит видео на YouTube для разных тетатик.
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS videos (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     youtube_id TEXT UNIQUE NOT NULL,
                     title TEXT,
                     description TEXT,
-                    channel_id INTEGER,
-                    FOREIGN KEY (channel_id) REFERENCES channels(id)
+                    topic_id INTEGER,
+                    FOREIGN KEY (topic_id) REFERENCES topics(id)
                 );
                 """)
             
+            # Таблица subtitles содержит субтитры для видео на YouTube.
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS subtitles (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,7 +149,8 @@ def insert_video(youtube_id: str, title: str, description: str, upload_date: str
         conn.commit()
         return cursor.lastrowid
 
-def insert_subtitle(video_id: int, language_code: str, subtitle_text: str, db_name="content_harvester.db") -> Optional[int]:
+def insert_subtitle(video_id: int, language_code: str, subtitle_text: str,
+                    db_name="content_harvester.db") -> Optional[int]:
     with sqlite3.connect(db_name) as conn:
         cursor = conn.cursor()
         cursor.execute(
