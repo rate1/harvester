@@ -234,3 +234,11 @@ def insert_publication(rewrite_id: int, channel_id: int, publish_date: str, stat
         )
         conn.commit()
         return cursor.lastrowid
+    
+
+def main():
+    initialize_db()
+
+
+if __name__ == '__main__':
+    main()
