@@ -1,7 +1,6 @@
 import sqlite3
 import logging
 
-
 from typing import Optional
 
 
@@ -18,11 +17,35 @@ def initialize_db(db_name="harvester_data.db") -> None:
         with sqlite3.connect(db_name) as conn:
             cursor = conn.cursor()
             
+            # Таблица languages содержит возможные коды языков ("ru", "en"...).
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS languages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    code TEXT UNIQUE NOT NULL
+                );
+                """)
+
+            # Таблица translators содержит список доступных переводчиков.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS translators (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    translator TEXT UNIQUE NOT NULL
+                );
+                """)
+
+            # Таблица publication_status содержит статусы публикаций.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS publication_status (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    status TEXT UNIQUE NOT NULL
+                );
+                """)
+
             # Таблица subjects содержит тематики ресурсов.
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS subjects (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    subject TEXT NOT NULL
+                    subject TEXT UNIQUE NOT NULL
                 );
                 """)
 
@@ -50,8 +73,8 @@ def initialize_db(db_name="harvester_data.db") -> None:
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS platforms (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    url TEXT NOT NULL
+                    name TEXT UNIQUE NOT NULL,
+                    url TEXT UNIQUE NOT NULL
                 );
                 """)
 
@@ -71,11 +94,25 @@ def initialize_db(db_name="harvester_data.db") -> None:
             # Таблица channels_categories содержит категории для каналов.
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS channels_categories (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
                     channel_id INTEGER,
                     category_id INTEGER,
+                    PRIMARY KEY (channel_id, category_id),
                     FOREIGN KEY (channel_id) REFERENCES channels(id),
                     FOREIGN KEY (category_id) REFERENCES categories(id)
+                );
+                """)
+
+            # Таблица original_texts содержит оригинальные тексты с источников.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS original_texts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    language_id INTEGER,
+                    text TEXT,
+                    topic_id INTEGER,
+                    created_at TEXT,
+                    updated_at TEXT,
+                    FOREIGN KEY (topic_id) REFERENCES topics(id),
+                    FOREIGN KEY (language_id) REFERENCES languages(id)
                 );
                 """)
             
@@ -87,28 +124,10 @@ def initialize_db(db_name="harvester_data.db") -> None:
                     title TEXT,
                     description TEXT,
                     topic_id INTEGER,
-                    FOREIGN KEY (topic_id) REFERENCES topics(id)
-                );
-                """)
-            
-            # Таблица original_texts содержит оригинальные текста с источников.
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS original_texts (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    language_code TEXT,
-                    text TEXT,
-                    topic_id INTEGER,
-                    FOREIGN KEY (topic_id) REFERENCES topics(id)
-                );
-                """)
-
-            # Таблица subtitles содержит субтитры для видео на YouTube.
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS subtitles (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    video_id INTEGER,
                     text_id INTEGER,
-                    FOREIGN KEY (video_id) REFERENCES videos(id),
+                    created_at TEXT,
+                    updated_at TEXT,
+                    FOREIGN KEY (topic_id) REFERENCES topics(id),
                     FOREIGN KEY (text_id) REFERENCES original_texts(id)
                 );
                 """)
@@ -118,9 +137,14 @@ def initialize_db(db_name="harvester_data.db") -> None:
                 CREATE TABLE IF NOT EXISTS translates (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     text_id INTEGER,
-                    language_code TEXT,
+                    language_id INTEGER,
                     translated_text TEXT,
-                    FOREIGN KEY (text_id) REFERENCES original_texts(id)
+                    translator_id INTEGER,
+                    created_at TEXT,
+                    updated_at TEXT,
+                    FOREIGN KEY (text_id) REFERENCES original_texts(id),
+                    FOREIGN KEY (translator_id) REFERENCES translators(id),
+                    FOREIGN KEY (language_id) REFERENCES languages(id)
                 );
                 """)
 
@@ -129,24 +153,30 @@ def initialize_db(db_name="harvester_data.db") -> None:
                 CREATE TABLE IF NOT EXISTS rewrites (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     rewrite_text TEXT,
-                    language_code TEXT,
+                    language_id INTEGER,
                     translate_id INTEGER,
                     topic_id INTEGER,
+                    created_at TEXT,
+                    updated_at TEXT,
                     FOREIGN KEY (translate_id) REFERENCES translates(id),
-                    FOREIGN KEY (topic_id) REFERENCES topics(id)
+                    FOREIGN KEY (topic_id) REFERENCES topics(id),
+                    FOREIGN KEY (language_id) REFERENCES languages(id)
                 );
                 """)
             
+            # Таблица publications содержит список публикаций на каналах.
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS publications (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     rewrite_id INTEGER,
                     channel_id INTEGER,
                     publish_date TEXT,
-                    status TEXT,
+                    status_id INTEGER,
                     published_url TEXT,
                     FOREIGN KEY (rewrite_id) REFERENCES rewrites(id),
-                    FOREIGN KEY (channel_id) REFERENCES channels(id)
+                    FOREIGN KEY (channel_id) REFERENCES channels(id),
+                    FOREIGN KEY (status_id) REFERENCES publication_status(id),
+                    CONSTRAINT unique_rewrite_channel UNIQUE (rewrite_id, channel_id)
                 );
                 """)
             
