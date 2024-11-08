@@ -187,6 +187,21 @@ def initialize_db(db_name="harvester_data.db") -> None:
         logger.error(f"Ошибка инициализации базы данных: {e}")
 
 
+def insert_languages(code: str, db_name="harvester_data.db") -> Optional[int]:
+    try:
+        with sqlite3.connect(db_name) as conn:
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO languages (code) VALUES (?)", (code,))
+            conn.commit()
+            return cursor.lastrowid
+    except sqlite3.IntegrityError:
+        logger.error(f"Код '{code}' уже существует в таблице.")
+        return None
+    except sqlite3.Error as e:
+        logger.error(f"Ошибка при добавлении языка: {e}")
+        return None
+
+
 def insert_channel(name: str, platform: str, db_name="content_harvester.db") -> Optional[int]:
     with sqlite3.connect(db_name) as conn:
         cursor = conn.cursor()
@@ -238,6 +253,7 @@ def insert_publication(rewrite_id: int, channel_id: int, publish_date: str, stat
 
 def main():
     initialize_db()
+    insert_languages("ru")
 
 
 if __name__ == '__main__':
