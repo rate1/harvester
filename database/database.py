@@ -1,7 +1,7 @@
 import sqlite3
 import logging
 
-from typing import Optional
+from typing import Optional, NamedTuple
 
 
 logger = logging.getLogger(__name__)
@@ -187,32 +187,43 @@ def initialize_db(db_name="harvester_data.db") -> None:
         logger.error(f"Ошибка инициализации базы данных: {e}")
 
 
-def insert_languages(code: str, db_name="harvester_data.db") -> Optional[int]:
+class Language(NamedTuple):
+    code: str
+    table_name: str = "languages"
+
+
+def insert_record(record: NamedTuple, db_name="harvester_data.db") -> Optional[int]:
     """
-    Вставляет новый язык в таблицу languages и возвращает его id.
+    Вставляет новую запись в таблицу record.table_name и возвращает ее id.
     Args:
-        code (str): Код языка для добавления в базу данных.
+        record (NamedTuple): Именованный кортеж для записи в БД.
         db_name (str): Имя базы данных, по умолчанию значение harvester_data.db.
     Returns:
-        Optional[int]: ID добавленного языка или None, если вставка не удалась.
+        Optional[int]: ID добавленной записи или None, если вставка не удалась.
     """
+    data = {k: v for k, v in record._asdict().items() if k != 'table_name'}
+    columns = ", ".join(data.keys())
+    placeholders = ", ".join("?" for _ in data)
+    query = f"INSERT INTO {record.table_name} ({columns}) VALUES ({placeholders})"
+    
     try:
         with sqlite3.connect(db_name) as conn:
             cursor = conn.cursor()
-            cursor.execute("INSERT INTO languages (code) VALUES (?)", (code,))
+            cursor.execute(query, tuple(data.values()))
             conn.commit()
             return cursor.lastrowid
-    except sqlite3.IntegrityError:
-        logger.error(f"Код '{code}' уже существует в таблице.")
+    except sqlite3.IntegrityError as e:
+        logger.error(f"Ошибка целостности данных: {e}")
         return None
     except sqlite3.Error as e:
-        logger.error(f"Ошибка при добавлении языка: {e}")
+        logger.error(f"Ошибка базы данных: {e}")
         return None
-    
+
 
 def main():
     initialize_db()
-    insert_languages("ru")
+    language = Language(code="en")
+    id = insert_record(language)
 
 
 if __name__ == '__main__':
