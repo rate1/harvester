@@ -16,7 +16,7 @@ def initialize_db(db_name="harvester_data.db") -> None:
     try:
         with sqlite3.connect(db_name) as conn:
             cursor = conn.cursor()
-            
+
             # Таблица languages содержит возможные коды языков ("ru", "en"...).
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS languages (
@@ -115,7 +115,7 @@ def initialize_db(db_name="harvester_data.db") -> None:
                     FOREIGN KEY (language_id) REFERENCES languages(id)
                 );
                 """)
-            
+
             # Таблица videos содержит видео на YouTube для разных тематик.
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS videos (
@@ -131,7 +131,7 @@ def initialize_db(db_name="harvester_data.db") -> None:
                     FOREIGN KEY (text_id) REFERENCES original_texts(id)
                 );
                 """)
-            
+
             # Таблица translates содержит переводы текстов.
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS translates (
@@ -163,7 +163,7 @@ def initialize_db(db_name="harvester_data.db") -> None:
                     FOREIGN KEY (language_id) REFERENCES languages(id)
                 );
                 """)
-            
+
             # Таблица publications содержит список публикаций на каналах.
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS publications (
@@ -179,10 +179,10 @@ def initialize_db(db_name="harvester_data.db") -> None:
                     CONSTRAINT unique_rewrite_channel UNIQUE (rewrite_id, channel_id)
                 );
                 """)
-            
+
             conn.commit()
             logger.info(f"База данных {db_name} успешно инициализирована.")
-            
+
     except sqlite3.Error as e:
         logger.error(f"Ошибка инициализации базы данных: {e}")
 
@@ -192,7 +192,7 @@ def insert_record(record: NamedTuple, db_name="harvester_data.db") -> Optional[i
     Вставляет новую запись в таблицу record.table_name и возвращает ее id.
     Args:
         record (NamedTuple): Именованный кортеж для записи в БД.
-        db_name (str): Имя базы данных, по умолчанию значение harvester_data.db.
+        db_name (str): Имя БД, по умолчанию значение harvester_data.db.
     Returns:
         Optional[int]: ID добавленной записи или None, если вставка не удалась.
     """
@@ -200,7 +200,7 @@ def insert_record(record: NamedTuple, db_name="harvester_data.db") -> Optional[i
     columns = ", ".join(data.keys())
     placeholders = ", ".join("?" for _ in data)
     query = f"INSERT INTO {record.table_name} ({columns}) VALUES ({placeholders})"
-    
+
     try:
         with sqlite3.connect(db_name) as conn:
             cursor = conn.cursor()
@@ -217,8 +217,6 @@ def insert_record(record: NamedTuple, db_name="harvester_data.db") -> Optional[i
 
 def main():
     initialize_db()
-    language = Language(code="en")
-    id = insert_record(language)
 
 
 if __name__ == '__main__':
