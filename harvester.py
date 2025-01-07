@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from content_parser.youtube_parser import youtube_subtitles_parser
 from translate.translate import text_translator_mymemory, text_translator_yandex
 from rewrite.chatgpt_rewrite import gpt_rewrite
+from prompts import PROMPT_REWRITE
 
 
 logging.basicConfig(
@@ -41,7 +42,7 @@ def main():
     try:
         if subtitles:
             logger.info("Начинается рерайт текста.")
-            article_text = gpt_rewrite(subtitles, max_tokens=6000)
+            article_text = gpt_rewrite(subtitles, PROMPT_REWRITE, max_tokens=6000)
             logger.info(f"Рерайт завершен успешно. Длина текста: {len(article_text)}.")
             print("Текст статьи после рерайта:")
             print(article_text)
